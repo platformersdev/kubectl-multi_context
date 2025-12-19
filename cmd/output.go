@@ -139,8 +139,52 @@ func formatDefaultOutput(results []contextResult) error {
 }
 
 func formatVersionOutput(results []contextResult) error {
+	type versionInfo struct {
+		clientVersion    string
+		kustomizeVersion string
+		serverVersion    string
+	}
+
+	// Parse version information from results
+	versionData := make(map[string]versionInfo)
+	var clientVersion, kustomizeVersion string
+
+	// First pass: extract client and kustomize version from first successful result
 	for _, result := range results {
 		if result.err != nil {
+			continue
+		}
+
+		output := strings.TrimSpace(result.output)
+		if output == "" {
+			continue
+		}
+
+		// Extract client and kustomize version (same for all contexts)
+		lines := strings.Split(output, "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if clientVersion == "" && strings.HasPrefix(line, "Client Version:") {
+				clientVersion = strings.TrimPrefix(line, "Client Version:")
+				clientVersion = strings.TrimSpace(clientVersion)
+			}
+			if kustomizeVersion == "" && strings.HasPrefix(line, "Kustomize Version:") {
+				kustomizeVersion = strings.TrimPrefix(line, "Kustomize Version:")
+				kustomizeVersion = strings.TrimSpace(kustomizeVersion)
+			}
+		}
+		// Continue looking if we haven't found both yet
+		if clientVersion != "" && kustomizeVersion != "" {
+			break
+		}
+	}
+
+	// Second pass: extract server version for each context
+	for _, result := range results {
+		if result.err != nil {
+			versionData[result.context] = versionInfo{
+				serverVersion: "ERROR",
+			}
 			fmt.Fprintf(os.Stderr, "Context %s: Error: %v\n", result.context, result.err)
 			if result.output != "" {
 				fmt.Fprintf(os.Stderr, "Output: %s\n", result.output)
@@ -150,23 +194,52 @@ func formatVersionOutput(results []contextResult) error {
 
 		output := strings.TrimSpace(result.output)
 		if output == "" {
+			versionData[result.context] = versionInfo{
+				serverVersion: "N/A",
+			}
 			continue
 		}
 
-		// Print context header
-		fmt.Printf("=== %s ===\n", result.context)
-
-		// Print version output with indentation
+		// Extract server version
+		var serverVersion string
 		lines := strings.Split(output, "\n")
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
-			if line != "" {
-				fmt.Printf("  %s\n", line)
+			if strings.HasPrefix(line, "Server Version:") {
+				serverVersion = strings.TrimPrefix(line, "Server Version:")
+				serverVersion = strings.TrimSpace(serverVersion)
+				break
 			}
 		}
 
-		// Add blank line between contexts
+		if serverVersion == "" {
+			serverVersion = "N/A"
+		}
+
+		versionData[result.context] = versionInfo{
+			serverVersion: serverVersion,
+		}
+	}
+
+	// Print client and kustomize version at the top
+	if clientVersion != "" {
+		fmt.Printf("Client Version: %s\n", clientVersion)
+	}
+	if kustomizeVersion != "" {
+		fmt.Printf("Kustomize Version: %s\n", kustomizeVersion)
+	}
+	if clientVersion != "" || kustomizeVersion != "" {
 		fmt.Println()
+	}
+
+	// Print table header
+	fmt.Printf("%-30s  %s\n", "CONTEXT", "SERVER VERSION")
+	fmt.Println(strings.Repeat("-", 50))
+
+	// Print table rows
+	for _, result := range results {
+		info := versionData[result.context]
+		fmt.Printf("%-30s  %s\n", result.context, info.serverVersion)
 	}
 
 	return nil

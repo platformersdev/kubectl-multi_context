@@ -219,7 +219,7 @@ func TestFormatVersionOutput(t *testing.T) {
 					err:     nil,
 				},
 			},
-			expected: "=== ctx1 ===\n  Client Version: v1.34.3\n  Kustomize Version: v5.7.1\n  Server Version: v1.34.0\n\n",
+			expected: "Client Version: v1.34.3\nKustomize Version: v5.7.1\n\nCONTEXT                         SERVER VERSION\n--------------------------------------------------\nctx1                            v1.34.0\n",
 		},
 		{
 			name: "multiple contexts",
@@ -235,14 +235,14 @@ func TestFormatVersionOutput(t *testing.T) {
 					err:     nil,
 				},
 			},
-			expected: "=== ctx1 ===\n  Client Version: v1.34.3\n  Server Version: v1.34.0\n\n=== ctx2 ===\n  Client Version: v1.34.3\n  Server Version: v1.34.0\n\n",
+			expected: "Client Version: v1.34.3\n\nCONTEXT                         SERVER VERSION\n--------------------------------------------------\nctx1                            v1.34.0\nctx2                            v1.34.0\n",
 		},
 		{
 			name: "context with error",
 			results: []contextResult{
 				{
 					context: "ctx1",
-					output:  "Client Version: v1.34.3",
+					output:  "Client Version: v1.34.3\nServer Version: v1.34.0",
 					err:     nil,
 				},
 				{
@@ -251,14 +251,14 @@ func TestFormatVersionOutput(t *testing.T) {
 					err:     fmt.Errorf("connection failed"),
 				},
 			},
-			expected: "=== ctx1 ===\n  Client Version: v1.34.3\n\n",
+			expected: "Client Version: v1.34.3\n\nCONTEXT                         SERVER VERSION\n--------------------------------------------------\nctx1                            v1.34.0\nctx2                            ERROR\n",
 		},
 		{
 			name: "context with empty output",
 			results: []contextResult{
 				{
 					context: "ctx1",
-					output:  "Client Version: v1.34.3",
+					output:  "Client Version: v1.34.3\nServer Version: v1.34.0",
 					err:     nil,
 				},
 				{
@@ -267,7 +267,7 @@ func TestFormatVersionOutput(t *testing.T) {
 					err:     nil,
 				},
 			},
-			expected: "=== ctx1 ===\n  Client Version: v1.34.3\n\n",
+			expected: "Client Version: v1.34.3\n\nCONTEXT                         SERVER VERSION\n--------------------------------------------------\nctx1                            v1.34.0\nctx2                            N/A\n",
 		},
 		{
 			name: "output with empty lines",
@@ -278,7 +278,7 @@ func TestFormatVersionOutput(t *testing.T) {
 					err:     nil,
 				},
 			},
-			expected: "=== ctx1 ===\n  Client Version: v1.34.3\n  Server Version: v1.34.0\n\n",
+			expected: "Client Version: v1.34.3\n\nCONTEXT                         SERVER VERSION\n--------------------------------------------------\nctx1                            v1.34.0\n",
 		},
 	}
 
@@ -622,16 +622,19 @@ func TestFormatOutput(t *testing.T) {
 			results: []contextResult{
 				{
 					context: "ctx1",
-					output:  "Client Version: v1.34.3",
+					output:  "Client Version: v1.34.3\nServer Version: v1.34.0",
 					err:     nil,
 				},
 			},
 			checkFn: func(t *testing.T, output string) {
-				if !strings.Contains(output, "=== ctx1 ===") {
-					t.Errorf("formatOutput() should use version format with === header")
+				if !strings.Contains(output, "CONTEXT") {
+					t.Errorf("formatOutput() should use tabular format with CONTEXT header")
+				}
+				if !strings.Contains(output, "SERVER VERSION") {
+					t.Errorf("formatOutput() should use tabular format with SERVER VERSION header")
 				}
 				if !strings.Contains(output, "Client Version") {
-					t.Errorf("formatOutput() should contain version info")
+					t.Errorf("formatOutput() should contain client version info")
 				}
 			},
 		},
