@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 	"k8s.io/client-go/tools/clientcmd"
@@ -57,7 +58,31 @@ func getContexts() ([]string, error) {
 		return nil, fmt.Errorf("no contexts found in kubeconfig")
 	}
 
+	// Apply filter if specified
+	if filterPattern != "" {
+		contexts = filterContexts(contexts, filterPattern)
+		if len(contexts) == 0 {
+			return nil, fmt.Errorf("no contexts match filter pattern: %s", filterPattern)
+		}
+	}
+
 	return contexts, nil
+}
+
+// filterContexts filters contexts by substring match (case-insensitive)
+func filterContexts(contexts []string, pattern string) []string {
+	if pattern == "" {
+		return contexts
+	}
+
+	var filtered []string
+	patternLower := strings.ToLower(pattern)
+	for _, ctx := range contexts {
+		if strings.Contains(strings.ToLower(ctx), patternLower) {
+			filtered = append(filtered, ctx)
+		}
+	}
+	return filtered
 }
 
 func getKubeconfigPath() string {
